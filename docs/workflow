@@ -1,0 +1,12 @@
+This is a internal DNS that can be used within a LAN.
+Usefull when hosting services within a LAN segment. 
+
+
+Implementation
+DNS has 5 sections which discribes different fields.
+Header: Describes the type of DNS packet this is, query, response ETC.
+Question: has a list of domain names that needs to be resolved
+Answer: Should provide the IP address for different domain.
+Authority: Records pointing to an Authority
+Additional information: Additonal information
+

@@ -2,29 +2,57 @@ package main
 
 import (
 	"bytes"
-	"encoding/binary"
+	"fmt"
+	"net"
+	"nsfw/utils"
 )
 
 const DEF_DNS_FLAG uint16 = 0
 
-type DNSHeader struct {
-	ID                      uint16
-	Flags                   uint16
-	QuestionCount           uint16
-	AnswerCount             uint16
-	AuthorityCount          uint16
-	AdditionalResourceCount uint16
-}
+func main() {
 
-func (d *DNSHeader) ToBytes() []byte {
+	address := ":53"
+	udpAddr, err := net.ResolveUDPAddr("udp", address)
 
-	encodedMessage := &bytes.Buffer{}
-	binary.Write(encodedMessage, binary.BigEndian, d.ID)
-	binary.Write(encodedMessage, binary.BigEndian, d.Flags)
-	binary.Write(encodedMessage, binary.BigEndian, d.QuestionCount)
-	binary.Write(encodedMessage, binary.BigEndian, d.AnswerCount)
-	binary.Write(encodedMessage, binary.BigEndian, d.AuthorityCount)
-	binary.Write(encodedMessage, binary.BigEndian, d.AdditionalResourceCount)
+	if err != nil {
+		panic(err)
+	}
 
-	return encodedMessage.Bytes()
+	conn, err := net.ListenUDP("udp", udpAddr)
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer conn.Close()
+
+	fmt.Println("Starting DNS server ...")
+
+	// buffer to recieve the message
+	inputBuff := make([]byte, 512)
+	//outputBuff := make([]byte, 512)
+
+	for i := 0; i < 1; i++ {
+
+		fmt.Println("Waiting for Requests ...")
+
+		n, clientAddr, err := conn.ReadFromUDP(inputBuff)
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Printf("Sending Request to Input Handler ")
+		fmt.Printf("Length of Packet %d, DNS Requested by: %v\n", n, clientAddr)
+		//fmt.Println(n, clientAddr)
+		err = utils.DNSRequestHandler(bytes.NewBuffer(inputBuff[:n]))
+
+		if err != nil {
+			panic(err)
+		}
+
+		// fmt.Errorf("Send Response to cl ient")
+		// DNSResponseHandler(clientAddr, outputBuff)
+
+	}
+
 }

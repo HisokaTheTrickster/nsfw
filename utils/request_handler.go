@@ -18,9 +18,9 @@ type DNSHeader struct {
 	AdditionalResourceCount uint16
 }
 
-func (d *DNSHeader) ToBytes() *bytes.Buffer {
-	encodedMessage := &bytes.Buffer{}
-	packetBinaryWrite(encodedMessage, d.ID, d.Flags, d.QuestionCount, d.AnswerCount, d.AuthorityCount, d.AdditionalResourceCount)
+func (d *DNSHeader) ToBytes() bytes.Buffer {
+	encodedMessage := bytes.Buffer{}
+	packetBinaryWrite(&encodedMessage, d.ID, d.Flags, d.QuestionCount, d.AnswerCount, d.AuthorityCount, d.AdditionalResourceCount)
 	return encodedMessage
 }
 
@@ -30,13 +30,13 @@ type DNSQueries struct {
 	QClass     uint16
 }
 
-func (d *DNSQueries) ToBytes() *bytes.Buffer {
+func (d *DNSQueries) ToBytes() bytes.Buffer {
 
-	encodedMessage := &bytes.Buffer{}
+	encodedMessage := bytes.Buffer{}
 	for _, label := range d.QueryLabel {
-		packetBinaryWrite(encodedMessage, len(label), label)
+		packetBinaryWrite(&encodedMessage, len(label), label)
 	}
-	packetBinaryWrite(encodedMessage, d.QType, d.QClass)
+	packetBinaryWrite(&encodedMessage, d.QType, d.QClass)
 	return encodedMessage
 }
 
@@ -52,6 +52,25 @@ func DNSRequestHandler(buff *bytes.Buffer) error {
 
 	data := buff.Bytes()
 	fmt.Printf("Bytes Recieved, % x\n", data)
+
+	// Read the flags in the header and identify different fields
+	// Exactact the data from different fields
+
+	// If the DNS request is a query, read the different labelds and
+	// identify the IP address
+
+	// If its not a DNS request, discard the packet, or just ignore.
+	// Create a response packet with the proper headers enabled
+
+	// Send response
+
+	//extractHeader()
+
+	//extractQueries()
+
+	//getResponses()
+
+	//responseToBytes()
 
 	return nil
 

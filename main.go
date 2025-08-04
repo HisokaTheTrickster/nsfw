@@ -7,23 +7,29 @@ import (
 	"nsfw/utils"
 )
 
-const DEF_DNS_FLAG uint16 = 0
+const (
+	ADDRESS_PORT = ":53"
+)
+
+func raisePanic(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+func raiseError(err error) {
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+}
 
 func main() {
 
-	address := ":53"
-	udpAddr, err := net.ResolveUDPAddr("udp", address)
-
-	if err != nil {
-		panic(err)
-	}
+	udpAddr, err := net.ResolveUDPAddr("udp", ADDRESS_PORT)
+	raisePanic(err)
 
 	conn, err := net.ListenUDP("udp", udpAddr)
-
-	if err != nil {
-		panic(err)
-	}
-
+	raisePanic(err)
 	defer conn.Close()
 
 	fmt.Println("Starting DNS server ...")
@@ -32,23 +38,16 @@ func main() {
 	inputBuff := make([]byte, 512)
 	//outputBuff := make([]byte, 512)
 
-	for i := 0; i < 1; i++ {
+	for noOfRequest := 0; noOfRequest < 1; noOfRequest++ {
 
 		fmt.Println("Waiting for Requests ...")
 
 		n, clientAddr, err := conn.ReadFromUDP(inputBuff)
-		if err != nil {
-			panic(err)
-		}
+		raisePanic(err)
 
-		fmt.Printf("Sending Request to Input Handler ")
-		fmt.Printf("Length of Packet %d, DNS Requested by: %v\n", n, clientAddr)
-		//fmt.Println(n, clientAddr)
+		fmt.Printf("Sending Request to Input Handler Length of Packet %d, DNS Requested by: %v\n", n, clientAddr)
 		err = utils.DNSRequestHandler(bytes.NewBuffer(inputBuff[:n]))
-
-		if err != nil {
-			panic(err)
-		}
+		raiseError(err)
 
 		// fmt.Errorf("Send Response to cl ient")
 		// DNSResponseHandler(clientAddr, outputBuff)

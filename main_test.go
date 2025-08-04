@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"nsfw/utils"
 	"testing"
 )
@@ -9,17 +8,13 @@ import (
 func TestDNSResolver(t *testing.T) {
 
 	// Create a dummy header
-	testHeader := utils.DNSHeader{ID: 23, Flags: utils.DEF_DNS_FLAG, QuestionCount: 1, AnswerCount: 0, AuthorityCount: 0, AdditionalResourceCount: 0}
-	testQuery := utils.DNSQueries{QueryLabel: []string{"google", "com"}, QType: 1, QClass: 1}
+	testDNS := utils.DNS{
+		Header: utils.DNSHeader{ID: 23, Flags: utils.DEF_DNS_FLAG, QuestionCount: 1, AnswerCount: 0, AuthorityCount: 0, AdditionalResourceCount: 0},
+		Query:  utils.DNSQueries{QueryLabel: []string{"google", "com"}, QType: 1, QClass: 1},
+	}
 
-	rawHeader := testHeader.ToBytes()
-	rawQuery := testQuery.ToBytes()
-
-	finalRaw := bytes.Buffer{}
-	finalRaw.Write(rawHeader.Bytes())
-	finalRaw.Write(rawQuery.Bytes())
-
-	err := utils.DNSRequestHandler(&finalRaw)
+	rawBytes := testDNS.ToBytes()
+	err := utils.DNSRequestHandler(&rawBytes)
 
 	if err != nil {
 		t.Errorf("Error occured")

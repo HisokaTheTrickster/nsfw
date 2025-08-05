@@ -2,17 +2,17 @@ package utils
 
 import (
 	"bytes"
-	"fmt"
+	"encoding/binary"
 )
 
 const DEF_DNS_FLAG uint16 = 0
 
 // Main function to handle DNS request
 
-func DNSRequestHandler(buff *bytes.Buffer) error {
+func DNSRequestHandler(buff *bytes.Buffer) (DNS, error) {
 
-	data := buff.Bytes()
-	fmt.Printf("Bytes Recieved, % x\n", data)
+	//data := buff.Bytes()
+	//fmt.Printf("Bytes Recieved, % x\n", data)
 
 	// Read the flags in the header and identify different fields
 	// Exactact the data from different fields
@@ -25,7 +25,14 @@ func DNSRequestHandler(buff *bytes.Buffer) error {
 
 	// Send response
 
-	//extractHeader()
+	dnsRequest := DNS{}
+
+	// Extract Header : first 12 bytes will be stored in struct DNSHeader / DNS.Header
+	headerBytes := buff.Next(12)
+	err := binary.Read(bytes.NewBuffer(headerBytes), binary.BigEndian, &dnsRequest.Header)
+	if err != nil {
+		return dnsRequest, err
+	}
 
 	//extractQueries()
 
@@ -33,6 +40,6 @@ func DNSRequestHandler(buff *bytes.Buffer) error {
 
 	//responseToBytes()
 
-	return nil
+	return dnsRequest, err
 
 }

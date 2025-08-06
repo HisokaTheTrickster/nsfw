@@ -3,6 +3,8 @@ package utils
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
+	"fmt"
 )
 
 const DEF_DNS_FLAG uint16 = 0
@@ -11,8 +13,8 @@ const DEF_DNS_FLAG uint16 = 0
 
 func DNSRequestHandler(buff *bytes.Buffer) (DNS, error) {
 
-	//data := buff.Bytes()
-	//fmt.Printf("Bytes Recieved, % x\n", data)
+	data := buff.Bytes()
+	fmt.Printf("Bytes Recieved, % x\n", data)
 
 	// Read the flags in the header and identify different fields
 	// Exactact the data from different fields
@@ -28,18 +30,60 @@ func DNSRequestHandler(buff *bytes.Buffer) (DNS, error) {
 	dnsRequest := DNS{}
 
 	// Extract Header : first 12 bytes will be stored in struct DNSHeader / DNS.Header
-	headerBytes := buff.Next(12)
-	err := binary.Read(bytes.NewBuffer(headerBytes), binary.BigEndian, &dnsRequest.Header)
-	if err != nil {
-		return dnsRequest, err
+	errHeader := extractHeader(&dnsRequest, buff)
+	if errHeader != nil {
+		return dnsRequest, errHeader
 	}
 
-	//extractQueries()
+	// Discard if its a response packet
+	if dnsRequest.Header.Flags&0x8000 != 0 {
+		return dnsRequest, errors.New("its not a query packet")
+	}
+
+	errQuery := extractQueries(&dnsRequest, buff)
+	if errQuery != nil {
+		return dnsRequest, errQuery
+	}
 
 	//getResponses()
 
 	//responseToBytes()
 
-	return dnsRequest, err
+	return dnsRequest, nil
 
+}
+
+func extractHeader(dnsRequest *DNS, buff *bytes.Buffer) error {
+	err := binary.Read(bytes.NewBuffer(buff.Next(12)), binary.BigEndian, &dnsRequest.Header)
+	return err
+}
+
+func extractQueries(dnsRequest *DNS, buff *bytes.Buffer) error {
+
+	noOfQueries := dnsRequest.Header.QuestionCount
+
+	for range noOfQueries {
+		dnsQuery := DNSQuery{}
+		readLen, err := buff.ReadByte()
+		if err != nil {
+			return errors.New("unable to read bytes")
+		}
+		lenOfLabel := int(readLen)
+
+		// extract each labels
+		for lenOfLabel != 0 {
+			dnsQuery.QueryLabel = append(dnsQuery.QueryLabel, string(buff.Next(lenOfLabel)))
+			readLen, err = buff.ReadByte()
+			if err != nil {
+				return errors.New("unable to read bytes")
+			}
+			lenOfLabel = int(readLen)
+		}
+		dnsQuery.QType = binary.BigEndian.Uint16(buff.Next(2))
+		dnsQuery.QClass = binary.BigEndian.Uint16(buff.Next(2))
+
+		dnsRequest.Queries = append(dnsRequest.Queries, dnsQuery)
+	}
+
+	return nil
 }

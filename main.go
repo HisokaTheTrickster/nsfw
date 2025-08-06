@@ -46,10 +46,10 @@ func main() {
 		raisePanic(err)
 
 		fmt.Printf("Sending Request to Input Handler Length of Packet %d, DNS Requested by: %v\n", n, clientAddr)
-		_, err = utils.DNSRequestHandler(bytes.NewBuffer(inputBuff[:n]))
+		dnsRequest, err := utils.DNSRequestHandler(bytes.NewBuffer(inputBuff[:n]))
 		raiseError(err)
 
-		// fmt.Errorf("Send Response to cl ient")
+		fmt.Printf("Recieved DNS request: %+v", dnsRequest)
 		// DNSResponseHandler(clientAddr, outputBuff)
 
 	}

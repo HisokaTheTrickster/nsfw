@@ -2,28 +2,71 @@ package main
 
 import (
 	"bytes"
-	"fmt"
+	"encoding/json"
+	"log"
 	"net"
 	"nsfw/utils"
+	"os"
 )
 
 const (
 	ADDRESS_PORT = ":53"
+	DNS_DB_PATH  = "records.json"
 )
 
 func raisePanic(err error) {
 	if err != nil {
+		log.Println(err.Error())
 		panic(err)
 	}
 }
 
 func raiseError(err error) {
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 	}
 }
 
+func loadAllDNSCache() (map[string]utils.DNSdatabase, error) {
+
+	db := []utils.DNSdatabase{}
+
+	data, err := os.ReadFile(DNS_DB_PATH)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(data, &db)
+	if err != nil {
+		return nil, err
+	}
+
+	dnsCache := make(map[string]utils.DNSdatabase)
+
+	for _, record := range db {
+		dnsCache[record.Name] = record
+	}
+
+	return dnsCache, nil
+
+}
+
+func setupLogger() error {
+	file, err := os.OpenFile("logs/dns.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	log.SetOutput(file)
+	return nil
+}
+
 func main() {
+
+	err := setupLogger()
+	raisePanic(err)
+
+	log.Println("Setting up the Server ...")
 
 	udpAddr, err := net.ResolveUDPAddr("udp", ADDRESS_PORT)
 	raisePanic(err)
@@ -32,7 +75,11 @@ func main() {
 	raisePanic(err)
 	defer conn.Close()
 
-	fmt.Println("Starting DNS server ...")
+	//dnsCache := Loading Cache
+	// DNS cache is a map of URL and Records
+
+	allDnsCache, err := loadAllDNSCache()
+	raisePanic(err)
 
 	// buffer to recieve the message
 	inputBuff := make([]byte, 512)
@@ -40,17 +87,24 @@ func main() {
 
 	for noOfRequest := 0; noOfRequest < 1; noOfRequest++ {
 
-		fmt.Println("Waiting for Requests ...")
+		log.Println("Waiting for Requests ...")
 
 		n, clientAddr, err := conn.ReadFromUDP(inputBuff)
 		raisePanic(err)
 
-		fmt.Printf("Sending Request to Input Handler Length of Packet %d, DNS Requested by: %v\n", n, clientAddr)
-		dnsRequest, err := utils.DNSRequestHandler(bytes.NewBuffer(inputBuff[:n]))
-		raiseError(err)
+		log.Printf("Request recived\n3Extracting headers... \nLength of Packet %d, DNS Requested by: %v\n", n, clientAddr)
+		dnsPacket, err := utils.RequestHandler(bytes.NewBuffer(inputBuff[:n]))
+		raisePanic(err)
 
-		fmt.Printf("Recieved DNS request: %+v", dnsRequest)
-		// DNSResponseHandler(clientAddr, outputBuff)
+		// Use pointers for allDNSCache later on?
+		log.Println("Checking Database for a response")
+		err = utils.FetchRecord(allDnsCache, &dnsPacket)
+		raisePanic(err)
+
+		log.Println("Printing Response")
+		//err = utils.ConstructReponse(queryRecord, &dnsPacket)
+		dnsPacket.SendResponse(clientAddr)
+		raisePanic(err)
 
 	}
 

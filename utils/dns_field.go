@@ -3,12 +3,23 @@ package utils
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
+	"log"
+	"net"
 )
 
 type DNS struct {
 	Header  DNSHeader
 	Queries []DNSQuery
+	Answer  []DNSRecords
+}
+
+func (d *DNS) SendResponse(clientAddr *net.UDPAddr) {
+	log.Println(d)
+	fmt.Println(d.Header)
+	fmt.Println(d.Queries)
+	fmt.Println(d.Answer)
 }
 
 func (d *DNS) ToBytes() bytes.Buffer {
@@ -51,6 +62,7 @@ type DNSQuery struct {
 	QueryLabel []string
 	QType      uint16
 	QClass     uint16
+	QueryPtr   uint16
 }
 
 func (d *DNSQuery) ToBytes() bytes.Buffer {
@@ -71,4 +83,19 @@ func packetBinaryWrite(buff io.Writer, data ...any) {
 	for _, iData := range data {
 		binary.Write(buff, binary.BigEndian, iData)
 	}
+}
+
+type DNSRecords struct {
+	NamePtr    uint16
+	RecordType uint16
+	Class      uint16
+	TTL        uint32
+	RDlength   uint16
+	RData      []uint8
+}
+
+type DNSdatabase struct {
+	Name    string
+	V6      bool
+	Address string
 }

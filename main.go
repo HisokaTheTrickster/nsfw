@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"nsfw/utils"
@@ -85,7 +86,7 @@ func main() {
 	inputBuff := make([]byte, 512)
 	//outputBuff := make([]byte, 512)
 
-	for noOfRequest := 0; noOfRequest < 1; noOfRequest++ {
+	for {
 
 		log.Println("Waiting for Requests ...")
 
@@ -103,7 +104,11 @@ func main() {
 
 		log.Println("Printing Response")
 		//err = utils.ConstructReponse(queryRecord, &dnsPacket)
-		dnsPacket.SendResponse(clientAddr)
+		bytesToSend := dnsPacket.ToBytes()
+		fmt.Println(bytesToSend)
+
+		_, err = conn.WriteToUDP(bytesToSend.Bytes(), clientAddr)
+
 		raisePanic(err)
 
 	}

@@ -3,23 +3,13 @@ package utils
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"io"
-	"log"
-	"net"
 )
 
 type DNS struct {
 	Header  DNSHeader
 	Queries []DNSQuery
 	Answer  []DNSRecords
-}
-
-func (d *DNS) SendResponse(clientAddr *net.UDPAddr) {
-	log.Println(d)
-	fmt.Println(d.Header)
-	fmt.Println(d.Queries)
-	fmt.Println(d.Answer)
 }
 
 func (d *DNS) ToBytes() bytes.Buffer {

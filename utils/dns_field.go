@@ -25,9 +25,16 @@ func (d *DNS) ToBytes() bytes.Buffer {
 		queryEncoded.Write(ithQuery.Bytes())
 	}
 
+	recordEncoded := bytes.Buffer{}
+	for i := 0; i < len(d.Answer); i++ {
+		ithRecord := d.Answer[i].ToBytes()
+		recordEncoded.Write(ithRecord.Bytes())
+	}
+
 	rawData := bytes.Buffer{}
 	rawData.Write(headerEncoded.Bytes())
 	rawData.Write(queryEncoded.Bytes())
+	rawData.Write(recordEncoded.Bytes())
 
 	return rawData
 
@@ -82,6 +89,18 @@ type DNSRecords struct {
 	TTL        uint32
 	RDlength   uint16
 	RData      []uint8
+}
+
+func (d *DNSRecords) ToBytes() bytes.Buffer {
+
+	encodedMessage := bytes.Buffer{}
+	packetBinaryWrite(&encodedMessage, d.NamePtr, d.RecordType, d.Class, d.TTL, d.RDlength)
+	for _, addressOctate := range d.RData {
+		packetBinaryWrite(&encodedMessage, addressOctate)
+	}
+
+	return encodedMessage
+
 }
 
 type DNSdatabase struct {

@@ -2,8 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
 	"log"
 	"net"
 	"nsfw/utils"
@@ -12,7 +10,6 @@ import (
 
 const (
 	ADDRESS_PORT = ":53"
-	DNS_DB_PATH  = "records.json"
 )
 
 func raisePanic(err error) {
@@ -22,50 +19,14 @@ func raisePanic(err error) {
 	}
 }
 
-func raiseError(err error) {
-	if err != nil {
-		log.Println(err.Error())
-	}
-}
-
-func loadAllDNSCache() (map[string]utils.DNSdatabase, error) {
-
-	db := []utils.DNSdatabase{}
-
-	data, err := os.ReadFile(DNS_DB_PATH)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(data, &db)
-	if err != nil {
-		return nil, err
-	}
-
-	dnsCache := make(map[string]utils.DNSdatabase)
-
-	for _, record := range db {
-		dnsCache[record.Name] = record
-	}
-
-	return dnsCache, nil
-
-}
-
-func setupLogger() error {
-	file, err := os.OpenFile("logs/dns.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	log.SetOutput(file)
-	return nil
-}
-
 func main() {
 
-	err := setupLogger()
-	raisePanic(err)
+	logFile, err := os.OpenFile("logs/dns.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("Failed to open log file: %v", err)
+	}
+	defer logFile.Close()
+	log.SetOutput(logFile)
 
 	log.Println("Setting up the Server ...")
 
@@ -76,10 +37,7 @@ func main() {
 	raisePanic(err)
 	defer conn.Close()
 
-	//dnsCache := Loading Cache
-	// DNS cache is a map of URL and Records
-
-	allDnsCache, err := loadAllDNSCache()
+	allDnsCache, err := utils.LoadAllDNSCache()
 	raisePanic(err)
 
 	// buffer to recieve the message
@@ -90,23 +48,40 @@ func main() {
 
 		log.Println("Waiting for Requests ...")
 
-		n, clientAddr, err := conn.ReadFromUDP(inputBuff)
-		raisePanic(err)
+		n, clientAddr, _ := conn.ReadFromUDP(inputBuff)
+		log.Printf("Request recived\nExtracting headers... \nLength of Packet %d, DNS Requested by: %v\n", n, clientAddr)
 
-		log.Printf("Request recived\n3Extracting headers... \nLength of Packet %d, DNS Requested by: %v\n", n, clientAddr)
-		dnsPacket, err := utils.RequestHandler(bytes.NewBuffer(inputBuff[:n]))
-		raisePanic(err)
+		dnsRequest, err := utils.ExtractRequest(bytes.NewBuffer(inputBuff[:n]))
+		if err != nil {
+			log.Println(err.Error() + ". dropping the packet")
+			continue
+		}
 
-		// Use pointers for allDNSCache later on?
-		log.Println("Checking Database for a response")
-		err = utils.FetchRecord(allDnsCache, &dnsPacket)
-		raisePanic(err)
+		// discard packets if cetain conditions are met
+		if utils.DiscardRequest(&dnsRequest) {
+			continue
+		}
 
-		log.Println("Printing Response")
-		//err = utils.ConstructReponse(queryRecord, &dnsPacket)
-		bytesToSend := dnsPacket.ToBytes()
-		fmt.Println(bytesToSend)
+		bytesToSend := bytes.Buffer{}
+		dnsResponse := utils.DNS{}
+		err = utils.FetchFromLocalRecord(allDnsCache, &dnsRequest, &dnsResponse)
 
+		if err == nil {
+			utils.CopyRequiredFields(&dnsRequest, &dnsResponse)
+			bytesToSend = dnsResponse.ToBytes()
+		} else {
+			if err == utils.ErrNoLocalRecord {
+				// send packet to Google DNS
+				log.Println("Need to send it to Googld DNS")
+				continue
+
+			} else {
+				log.Println(err)
+				continue
+			}
+		}
+
+		log.Println("Sending response")
 		_, err = conn.WriteToUDP(bytesToSend.Bytes(), clientAddr)
 
 		raisePanic(err)

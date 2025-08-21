@@ -17,7 +17,7 @@ func TestCheckHeader(t *testing.T) {
 		}
 
 		rawBytes := testDNS.ToBytes()
-		resultDNS, err := RequestHandler(&rawBytes)
+		resultDNS, err := ExtractRequest(&rawBytes)
 
 		if err != nil {
 			t.Errorf("Error occured")

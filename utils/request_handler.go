@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 )
 
@@ -12,10 +13,7 @@ const DEF_DNS_FLAG uint16 = 0
 
 // Main function to handle DNS request
 
-func RequestHandler(buff *bytes.Buffer) (DNS, error) {
-
-	//data := buff.Bytes()
-	//fmt.Printf("Bytes Recieved, % x\n", data)
+func ExtractRequest(buff *bytes.Buffer) (DNS, error) {
 
 	dnsRequest := DNS{}
 
@@ -30,28 +28,21 @@ func RequestHandler(buff *bytes.Buffer) (DNS, error) {
 	}
 
 	return dnsRequest, nil
-
-	// getResponses()
-	// Future releases
-
-	// responseToBytes()
-	// Future releases
-
-	// Discard if its a response packet
-	//if dnsRequest.Header.Flags&0x8000 != 0 {
-	//	return dnsRequest, errors.New("its not a query packet")
-	//}
-
 }
 
 func extractHeader(dnsRequest *DNS, buff *bytes.Buffer) error {
 	// Extract Header : first 12 bytes will be stored in struct DNSHeader / DNS.Header
 	err := binary.Read(bytes.NewBuffer(buff.Next(12)), binary.BigEndian, &dnsRequest.Header)
-	return err
+
+	if err != nil {
+		return errors.New("unable to extract dns header")
+	}
+
+	return nil
+
 }
 
 func extractQueries(dnsRequest *DNS, buff *bytes.Buffer) error {
-
 	noOfQueries := dnsRequest.Header.QuestionCount
 
 	for range noOfQueries {
@@ -59,7 +50,7 @@ func extractQueries(dnsRequest *DNS, buff *bytes.Buffer) error {
 		readLen, err := buff.ReadByte()
 
 		if err != nil {
-			return errors.New("unable to read bytes")
+			return errors.New("unable to extract dns query")
 		}
 		lenOfLabel := int(readLen)
 
@@ -68,7 +59,7 @@ func extractQueries(dnsRequest *DNS, buff *bytes.Buffer) error {
 			dnsQuery.QueryLabel = append(dnsQuery.QueryLabel, string(buff.Next(lenOfLabel)))
 			readLen, err = buff.ReadByte()
 			if err != nil {
-				return errors.New("unable to read bytes")
+				return errors.New("unable to extract dns query")
 			}
 			lenOfLabel = int(readLen)
 		}
@@ -83,21 +74,24 @@ func extractQueries(dnsRequest *DNS, buff *bytes.Buffer) error {
 	return nil
 }
 
-func FetchRecord(allDnsCache map[string]DNSdatabase, dnsPacket *DNS) error {
+func FetchFromLocalRecord(allDnsCache map[string]DNSdatabase, dnsRequest *DNS, dnsResponse *DNS) error {
+
+	log.Println("Checking Database for a response")
 
 	// query pointer to record mapping
 	// In the answer header, the name field points to the pointer where the query is requested.
 	// This is query compressions. Insted of the complete query, you just point to it
 
-	if dnsPacket.Header.Flags&0x8000 != 0 {
-		return errors.New("this is not a request packet")
-	}
-
 	// extract the IP for each query
 	pointer := uint16(0xc0) << 8
 	offSet := uint16(12)
 
-	for _, query := range dnsPacket.Queries {
+	for _, query := range dnsRequest.Queries {
+
+		// skip if the query is of type AAAA
+		if query.QType == 28 {
+			continue
+		}
 
 		responseRecord := DNSRecords{}
 		responseRecord.NamePtr = pointer + offSet
@@ -118,10 +112,9 @@ func FetchRecord(allDnsCache map[string]DNSdatabase, dnsPacket *DNS) error {
 		fmt.Println(allDnsCache)
 		fmt.Println(requestUrl)
 
+		// check if record exists
 		if !ifExist {
-			fmt.Printf("Skipping query %s as no records exists locally\n", requestUrl)
-			continue
-			// need to call Google DNS in case the record is not there locally
+			return ErrNoLocalRecord
 		}
 
 		ipAddress := []byte(net.ParseIP(record.Address))
@@ -140,10 +133,51 @@ func FetchRecord(allDnsCache map[string]DNSdatabase, dnsPacket *DNS) error {
 		responseRecord.Class = 1
 		responseRecord.TTL = 150
 
-		dnsPacket.Answer = append(dnsPacket.Answer, responseRecord)
+		dnsResponse.Answer = append(dnsResponse.Answer, responseRecord)
 
 	}
 
+	if len(dnsResponse.Answer) == 0 {
+		return ErrNoLocalRecord
+	}
+
 	return nil
+
+}
+
+func CopyRequiredFields(dnsRequest, dnsRespone *DNS) {
+
+	// Set the headers
+	dnsRespone.Header.ID = dnsRequest.Header.ID
+	dnsRespone.Header.Flags = dnsRequest.Header.Flags
+
+	dnsRespone.Header.Flags |= 1 << 15            // Response packet
+	dnsRespone.Header.Flags |= 1 << 10            // This is the Authority for the domain
+	dnsRespone.Header.Flags &= 0b1111111011111111 // The packet is not truncated
+	dnsRespone.Header.Flags &= 0b1111111110111111 // Recursion not avilable
+
+	dnsRespone.Header.QuestionCount = dnsRequest.Header.QuestionCount
+	dnsRespone.Header.AnswerCount = uint16(len(dnsRespone.Answer))
+
+	dnsRespone.Header.AuthorityCount = 0
+	dnsRespone.Header.AdditionalResourceCount = 0
+
+	// Set the query section
+	dnsRespone.Queries = dnsRequest.Queries
+
+	// response is aldready set
+
+	// convert the headers to bytes.
+
+}
+
+func DiscardRequest(dnsRequest *DNS) bool {
+
+	if dnsRequest.Header.Flags&0x8000 != 0 {
+		log.Println("This is not a DNS request. Dropping the packet")
+		return true
+	}
+
+	return false
 
 }

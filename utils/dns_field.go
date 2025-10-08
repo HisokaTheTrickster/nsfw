@@ -2,8 +2,6 @@ package utils
 
 import (
 	"bytes"
-	"encoding/binary"
-	"io"
 )
 
 type DNS struct {
@@ -12,7 +10,7 @@ type DNS struct {
 	Answer  []DNSRecords
 }
 
-func (d *DNS) ToBytes() bytes.Buffer {
+func (d *DNS) ToBytes() []byte {
 
 	// Check if the relevent flags are enabled an only convert those struct to bytes
 	// For now converting Header and query
@@ -36,7 +34,7 @@ func (d *DNS) ToBytes() bytes.Buffer {
 	rawData.Write(queryEncoded.Bytes())
 	rawData.Write(recordEncoded.Bytes())
 
-	return rawData
+	return rawData.Bytes()
 
 }
 
@@ -76,12 +74,6 @@ func (d *DNSQuery) ToBytes() bytes.Buffer {
 	return encodedMessage
 }
 
-func packetBinaryWrite(buff io.Writer, data ...any) {
-	for _, iData := range data {
-		binary.Write(buff, binary.BigEndian, iData)
-	}
-}
-
 type DNSRecords struct {
 	NamePtr    uint16
 	RecordType uint16
@@ -104,7 +96,7 @@ func (d *DNSRecords) ToBytes() bytes.Buffer {
 }
 
 type DNSdatabase struct {
-	Name    string
-	V6      bool
-	Address string
+	Rtype uint16 `json:"rtype"`
+	Ttl   uint32 `json:"ttl"`
+	Value string `json:"value"`
 }

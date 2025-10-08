@@ -1,7 +1,7 @@
-[
-    {
-        "Name": "stream.stv",
-        "V6" : false,
-        "Address": "192.168.100.150"
-    }
-]
+{
+
+    "jellyfin.stv": [
+        {"rtype": 1, "ttl": 300, "value": "192.168.0.200"}
+    ]
+
+}

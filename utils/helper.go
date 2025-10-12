@@ -15,7 +15,7 @@ func LoadAllDNSCache() map[string][]DNSdatabase {
 
 	db := make(map[string][]DNSdatabase)
 
-	data, err := os.ReadFile("records.json")
+	data, err := os.ReadFile("/home/admin/homelab/nsfw/records.json")
 	if err != nil {
 		log.Println("no local records found")
 		return nil

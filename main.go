@@ -26,7 +26,10 @@ func main() {
 	log.SetOutput(logFile)
 
 	serverAddr, _ := net.ResolveUDPAddr("udp", utils.DNS_ADDRESS_PORT)
-	conn, _ := net.ListenUDP("udp", serverAddr)
+	conn, err := net.ListenUDP("udp", serverAddr)
+	if err != nil {
+		log.Fatalf("Failed to listen on UDP: %v", err)
+	}
 	defer conn.Close()
 
 	log.Printf(`

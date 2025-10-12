@@ -74,8 +74,6 @@ func extractQueries(dnsRequest *DNS, buff *bytes.Buffer) error {
 
 func FetchRecord(allDnsCache map[string][]DNSdatabase, dnsRequest *DNS, dnsResponse *DNS, inputBufferPtr *[]byte, inputBuffSize int) (RecordStatus, []byte) {
 
-	log.Println("Checking Database for a response")
-
 	// query pointer to record mapping
 	// In the answer header, the name field points to the pointer where the query is requested.
 	// This is query compressions. Insted of the complete query, you just point to it
@@ -144,7 +142,7 @@ func FetchRecord(allDnsCache map[string][]DNSdatabase, dnsRequest *DNS, dnsRespo
 			if err != nil {
 				recStat = ERR_REMOTE_DNS_TIMEOUT
 			} else {
-				recStat = RECORD_FOUND_REMOTE
+				recStat = RECORD_FROM_REMOTE
 			}
 
 		}
@@ -192,7 +190,7 @@ func CopyRequiredFields(dnsRequest, dnsRespone *DNS) {
 func DiscardRequest(dnsRequest *DNS) bool {
 
 	if dnsRequest.Header.Flags&0x8000 != 0 {
-		log.Println("This is not a DNS request. Dropping the packet")
+		log.Println("Not a DNS request. Dropping the packet")
 		return true
 	}
 

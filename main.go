@@ -18,36 +18,53 @@ func raisePanic(err error) {
 
 func main() {
 
-	// Setting up the logger to save it int he file.
-	err := os.MkdirAll("logs", 0755)
-	if err != nil {
-		log.Fatalf("Failed to create logs directory: %v", err)
-	}
-
-	logFile, err := os.OpenFile("logs/dns.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	logFile, err := os.OpenFile("nsfw.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("Failed to open log file: %v", err)
 	}
 	defer logFile.Close()
 	log.SetOutput(logFile)
-	log.Println("Setting up the Server ...")
 
 	serverAddr, _ := net.ResolveUDPAddr("udp", utils.DNS_ADDRESS_PORT)
 	conn, _ := net.ListenUDP("udp", serverAddr)
 	defer conn.Close()
 
-	localDnsCache, err := utils.LoadAllDNSCache()
-	raisePanic(err)
+	log.Printf(`
+
+
+
+===============================================================
+
+	 /$$   /$$  /$$$$$$  /$$$$$$$$ /$$      /$$
+	| $$$ | $$ /$$__  $$| $$_____/| $$  /$ | $$
+	| $$$$| $$| $$  \__/| $$      | $$ /$$$| $$
+	| $$ $$ $$|  $$$$$$ | $$$$$   | $$/$$ $$ $$
+	| $$  $$$$ \____  $$| $$__/   | $$$$_  $$$$
+	| $$\  $$$ /$$  \ $$| $$      | $$$/ \  $$$
+	| $$ \  $$|  $$$$$$/| $$      | $$/   \  $$
+	|__/  \__/ \______/ |__/      |__/     \__/
+
+
+       		NSFW - Name Server For the Web
+  A lightweight, fast, and customizable DNS resolver for lan
+
+   	  https://github.com/your-username/nsfw	
+                                             
+===============================================================
+                                           
+	`)
+
+	log.Println("loading local records")
+	localDnsCache := utils.LoadAllDNSCache()
 
 	// buffer to recieve the message
 	inputBuff := make([]byte, 512)
 
+	log.Println("Server up an running")
+
 	for {
 
-		log.Println("Waiting for Requests ...")
-
 		inputBuffSize, clientAddr, _ := conn.ReadFromUDP(inputBuff)
-		log.Printf("Request recived\nExtracting headers... \nLength of Packet %d, DNS Requested by: %v\n", inputBuffSize, clientAddr)
 
 		var (
 			dnsRequest, dnsResponse = utils.DNS{}, utils.DNS{}
@@ -58,7 +75,6 @@ func main() {
 		// Convert bytes to dnsRequest of type DNS
 		dnsRequest, err := utils.ExtractRequest(bytes.NewBuffer(inputBuff[:inputBuffSize]))
 		if err != nil {
-			log.Println(err.Error() + ". dropping the packet")
 			continue
 		}
 
@@ -79,6 +95,8 @@ func main() {
 			utils.CopyRequiredFields(&dnsRequest, &dnsResponse)
 			bytesToSend = dnsResponse.ToBytes()
 
+		case utils.RECORD_FROM_REMOTE:
+
 		case utils.ERR_REMOTE_DNS_TIMEOUT:
 			// Discard packet
 			continue
@@ -87,7 +105,6 @@ func main() {
 			log.Println("Error occured when fetching record")
 		}
 
-		log.Println("Sending response")
 		_, err = conn.WriteToUDP(bytesToSend, clientAddr)
 
 		raisePanic(err)

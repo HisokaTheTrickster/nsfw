@@ -3,30 +3,34 @@ package utils
 import (
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
+	"log"
 	"net"
 	"os"
 	"time"
 )
 
-func LoadAllDNSCache() (map[string][]DNSdatabase, error) {
+func LoadAllDNSCache() map[string][]DNSdatabase {
 
 	db := make(map[string][]DNSdatabase)
 
 	data, err := os.ReadFile("records.json")
 	if err != nil {
-		return nil, err
+		log.Println("no local records found")
+		return nil
 	}
 
 	err = json.Unmarshal(data, &db)
 	if err != nil {
-		return nil, err
+
+		log.Println(errors.New("invalid record format, skipping"))
+		return nil
 	}
 
-	fmt.Println(db)
+	log.Println("local records loaded")
 
-	return db, err
+	return db
 
 }
 
@@ -87,7 +91,6 @@ func FetchFromNet(inputBufferPtr *[]byte, inputBuffSize int) ([]byte, error) {
 	_ = n
 
 	if err != nil {
-		fmt.Println("Error or timeout:", err)
 		return dnsServerBuffer, err
 	}
 

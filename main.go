@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"log"
 	"net"
-	"os"
-
-	"github.com/HisokaTheTrickster/nsfw/utils"
 )
 
 func raisePanic(err error) {
@@ -18,14 +15,7 @@ func raisePanic(err error) {
 
 func main() {
 
-	logFile, err := os.OpenFile("/home/admin/homelab/nsfw/nsfw.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		log.Fatalf("Failed to open log file: %v", err)
-	}
-	defer logFile.Close()
-	log.SetOutput(logFile)
-
-	serverAddr, _ := net.ResolveUDPAddr("udp", utils.DNS_ADDRESS_PORT)
+	serverAddr, _ := net.ResolveUDPAddr("udp", DNS_ADDRESS_PORT)
 	conn, err := net.ListenUDP("udp", serverAddr)
 	if err != nil {
 		log.Fatalf("Failed to listen on UDP: %v", err)
@@ -58,54 +48,47 @@ func main() {
 	`)
 
 	log.Println("loading local records")
-	localDnsCache := utils.LoadAllDNSCache()
+	localDnsCache := LoadAllDNSCache()
 
 	// buffer to recieve the message
-	inputBuff := make([]byte, 512)
 
-	log.Println("Server up an running")
+
+	log.Println("Server up and running")
 
 	for {
 
-		inputBuffSize, clientAddr, _ := conn.ReadFromUDP(inputBuff)
-
 		var (
-			dnsRequest, dnsResponse = utils.DNS{}, utils.DNS{}
+			dnsRequest, dnsResponse = DNS{}, DNS{}
 			bytesToSend             []byte
-			recordStat              utils.RecordStatus
 		)
 
-		// Convert bytes to dnsRequest of type DNS
-		dnsRequest, err := utils.ExtractRequest(bytes.NewBuffer(inputBuff[:inputBuffSize]))
+		// listen for the DNS request on the wire. This is blocking
+		rawInput := make([]byte, 512)
+		rawInputSize, clientAddr, _ := conn.ReadFromUDP(rawInput)
+		
+
+		// Convert input bytes to dnsRequest of type DNS
+		inputBuff := bytes.NewBuffer(rawInput[:rawInputSize])
+		dnsRequest, err := ExtractRequest(inputBuff)
 		if err != nil {
 			continue
 		}
 
 		// discard request if cetain conditions are met
-		if utils.DiscardRequest(&dnsRequest) {
+		if DiscardRequest(&dnsRequest) {
 			continue
 		}
 
-		recordStat, bytesToSend = utils.FetchRecord(localDnsCache, &dnsRequest, &dnsResponse, &inputBuff, inputBuffSize)
+		// Fetch record from local cache
+		recordStat, recordFromLocalCache := FetchRecordFromLocal(localDnsCache, &dnsRequest) 
 
-		switch recordStat {
-
-		case utils.RECORD_FOUND_LOCALLY:
-			utils.CopyRequiredFields(&dnsRequest, &dnsResponse)
-			bytesToSend = dnsResponse.ToBytes()
-
-		case utils.DOMAIN_EXISTS_NO_RECORD:
-			utils.CopyRequiredFields(&dnsRequest, &dnsResponse)
-			bytesToSend = dnsResponse.ToBytes()
-
-		case utils.RECORD_FROM_REMOTE:
-
-		case utils.ERR_REMOTE_DNS_TIMEOUT:
-			// Discard packet
-			continue
-
-		default:
-			log.Println("Error occured when fetching record")
+		if recordStat == DOMAIN_NOT_FOUND_IN_LOCAL {
+			// Send the raw request to Google DNS
+			bytesToSend, err = FetchFromNet(&rawInput, rawInputSize)
+		} else {
+			SetHeadersAndFields(&dnsRequest, &dnsResponse, recordStat)
+			CraftResponseRecord(&dnsResponse, recordStat, recordFromLocalCache )
+			bytesToSend = dnsResponse.ToBytes(recordStat)
 		}
 
 		_, err = conn.WriteToUDP(bytesToSend, clientAddr)

@@ -1,4 +1,4 @@
-package utils
+package main
 
 import (
 	"bytes"
@@ -6,33 +6,28 @@ import (
 
 type DNS struct {
 	Header  DNSHeader
-	Queries []DNSQuery
-	Answer  []DNSRecords
+	Query DNSQuery
+	Answer  DNSRecord
 }
 
-func (d *DNS) ToBytes() []byte {
+func (d *DNS) ToBytes(recordStat RecordStatus) []byte {
 
 	// Check if the relevent flags are enabled an only convert those struct to bytes
 	// For now converting Header and query
-
-	headerEncoded := d.Header.ToBytes()
-
-	queryEncoded := bytes.Buffer{}
-	for i := 0; i < len(d.Queries); i++ {
-		ithQuery := d.Queries[i].ToBytes()
-		queryEncoded.Write(ithQuery.Bytes())
-	}
-
-	recordEncoded := bytes.Buffer{}
-	for i := 0; i < len(d.Answer); i++ {
-		ithRecord := d.Answer[i].ToBytes()
-		recordEncoded.Write(ithRecord.Bytes())
-	}
+	// If domain exists but no record, then ignore the record
 
 	rawData := bytes.Buffer{}
-	rawData.Write(headerEncoded.Bytes())
-	rawData.Write(queryEncoded.Bytes())
-	rawData.Write(recordEncoded.Bytes())
+
+	headerEncoded := d.Header.ToBytesBuffer()
+	headerEncoded.WriteTo(&rawData)
+
+	queryEncoded := d.Query.ToBytesBuffer()
+	queryEncoded.WriteTo(&rawData)
+
+	if recordStat == RECORD_FOUND_IN_LOCAL {
+		recordEncoded := d.Answer.ToBytesBuffer()
+		recordEncoded.WriteTo(&rawData)
+	}
 
 	return rawData.Bytes()
 
@@ -47,7 +42,7 @@ type DNSHeader struct {
 	AdditionalResourceCount uint16
 }
 
-func (d *DNSHeader) ToBytes() bytes.Buffer {
+func (d *DNSHeader) ToBytesBuffer() bytes.Buffer {
 	encodedMessage := bytes.Buffer{}
 	packetBinaryWrite(&encodedMessage, d.ID, d.Flags, d.QuestionCount, d.AnswerCount, d.AuthorityCount, d.AdditionalResourceCount)
 	return encodedMessage
@@ -60,7 +55,7 @@ type DNSQuery struct {
 	QueryPtr   uint16
 }
 
-func (d *DNSQuery) ToBytes() bytes.Buffer {
+func (d *DNSQuery) ToBytesBuffer() bytes.Buffer {
 
 	encodedMessage := bytes.Buffer{}
 	for _, label := range d.QueryLabel {
@@ -74,7 +69,7 @@ func (d *DNSQuery) ToBytes() bytes.Buffer {
 	return encodedMessage
 }
 
-type DNSRecords struct {
+type DNSRecord struct {
 	NamePtr    uint16
 	RecordType uint16
 	Class      uint16
@@ -83,7 +78,7 @@ type DNSRecords struct {
 	RData      []uint8
 }
 
-func (d *DNSRecords) ToBytes() bytes.Buffer {
+func (d *DNSRecord) ToBytesBuffer() bytes.Buffer {
 
 	encodedMessage := bytes.Buffer{}
 	packetBinaryWrite(&encodedMessage, d.NamePtr, d.RecordType, d.Class, d.TTL, d.RDlength)
@@ -95,7 +90,7 @@ func (d *DNSRecords) ToBytes() bytes.Buffer {
 
 }
 
-type DNSdatabase struct {
+type DNSLocalCache struct {
 	Rtype uint16 `json:"rtype"`
 	Ttl   uint32 `json:"ttl"`
 	Value string `json:"value"`

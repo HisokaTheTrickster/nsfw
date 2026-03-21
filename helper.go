@@ -41,7 +41,7 @@ func packetBinaryWrite(buff io.Writer, data ...any) {
 	}
 }
 
-func FetchFromPublicDNS(inputBufferPtr *[]byte, inputBuffSize int) ([]byte, error) {
+func FetchFromPublicDNS(inputBuffer []byte, inputBuffSize int) ([]byte, error) {
 
 	dnsServerBuffer := make([]byte, 512)
 
@@ -56,7 +56,7 @@ func FetchFromPublicDNS(inputBufferPtr *[]byte, inputBuffSize int) ([]byte, erro
 	}
 	defer conn.Close()
 
-	_, err = conn.Write((*inputBufferPtr)[:inputBuffSize])
+	_, err = conn.Write(inputBuffer[:inputBuffSize])
 	if err != nil {
 		return dnsServerBuffer, err
 	}
@@ -64,8 +64,6 @@ func FetchFromPublicDNS(inputBufferPtr *[]byte, inputBuffSize int) ([]byte, erro
 	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 
 	n, _, err := conn.ReadFromUDP(dnsServerBuffer)
-	_ = n
-
 	if err != nil {
 		return dnsServerBuffer, err
 	}

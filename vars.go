@@ -29,3 +29,22 @@ var (
 	errExtractDNSHeader = errors.New("Unable to extract the DNS request Header")
 	errExtractDNSQuery = errors.New("Unable to extract the DNS request Query")
 )
+
+const BANNER string = `===============================================================
+
+	 /$$   /$$  /$$$$$$  /$$$$$$$$ /$$      /$$
+	| $$$ | $$ /$$__  $$| $$_____/| $$  /$ | $$
+	| $$$$| $$| $$  \__/| $$      | $$ /$$$| $$
+	| $$ $$ $$|  $$$$$$ | $$$$$   | $$/$$ $$ $$
+	| $$  $$$$ \____  $$| $$__/   | $$$$_  $$$$
+	| $$\  $$$ /$$  \ $$| $$      | $$$/ \  $$$
+	| $$ \  $$|  $$$$$$/| $$      | $$/   \  $$
+	|__/  \__/ \______/ |__/      |__/     \__/
+
+
+       		NSFW - Name Server For the Web
+  A lightweight, fast, and customizable DNS resolver for lan
+
+   	  https://github.com/your-username/nsfw	
+                                             
+===============================================================`

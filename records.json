@@ -2,6 +2,9 @@
 
     "jellyfin.stv": [
         {"rtype": 1, "ttl": 300, "value": "192.168.0.200"}
+    ],
+    "bachira.stv": [
+        {"rtype": 1, "ttl": 300, "value": "192.168.0.200"}
     ]
 
 }

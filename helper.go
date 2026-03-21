@@ -15,7 +15,7 @@ func LoadAllDNSCache() map[string][]DNSLocalCache {
 
 	db := make(map[string][]DNSLocalCache)
 
-	data, err := os.ReadFile("/home/admin/homelab/nsfw/records.json")
+	data, err := os.ReadFile("./records.json")
 	if err != nil {
 		log.Println("no local records found")
 		return nil
@@ -24,7 +24,7 @@ func LoadAllDNSCache() map[string][]DNSLocalCache {
 	err = json.Unmarshal(data, &db)
 	if err != nil {
 
-		log.Println(errors.New("invalid record format, skipping"))
+		log.Println(errors.New("invalid record format, skipping records.json"))
 		return nil
 	}
 
@@ -41,7 +41,7 @@ func packetBinaryWrite(buff io.Writer, data ...any) {
 	}
 }
 
-func FetchFromNet(inputBufferPtr *[]byte, inputBuffSize int) ([]byte, error) {
+func FetchFromPublicDNS(inputBufferPtr *[]byte, inputBuffSize int) ([]byte, error) {
 
 	dnsServerBuffer := make([]byte, 512)
 

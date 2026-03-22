@@ -67,40 +67,10 @@ func extractQueries(dnsRequest *DNS, buff *bytes.Buffer) error {
 	return nil
 }
 
-func FetchRecordFromLocal(localDnsCache map[string][]DNSLocalCache, dnsRequest *DNS) (RecordStatus, DNSLocalCache) {
-
-	var requestUrl string
-	var requestRecordType uint16 = dnsRequest.Query.QType
-
-	// Construct the Request URL
-	for _, label := range dnsRequest.Query.QueryLabel {
-		requestUrl += label
-		requestUrl += "."
-	}
-	requestUrl = requestUrl[:len(requestUrl)-1]
-
-	// Check if domain exists locally.
-	lookupRecords, ifLocalDomainExist := localDnsCache[requestUrl]
-
-	if !ifLocalDomainExist {
-		return DOMAIN_NOT_FOUND_IN_LOCAL, DNSLocalCache{}
-	}
-
-	// Check if record exists locally
-	for _, rec := range lookupRecords {
-		if requestRecordType == rec.Rtype {
-			return RECORD_FOUND_IN_LOCAL, rec
-		}
-	}
-
-	return DOMAIN_EXISTS_NO_RECORD, DNSLocalCache{}
-
-}
-
 func CraftResponseRecord(dnsRespone *DNS, recordStat RecordStatus, recordFromLocalCache DNSLocalCache) {
 
 	// Since record is not present in local cache, skip creafting Record response
-	if recordStat == DOMAIN_EXISTS_NO_RECORD {
+	if recordStat == DOMAIN_EXISTS_NO_RECORD || recordStat == DOMAIN_BLOCKED {
 		return
 	}
 
@@ -154,13 +124,20 @@ func SetHeadersAndFields(dnsRequest, dnsRespone *DNS, recordStat RecordStatus) {
 	dnsRespone.Header.AuthorityCount = 0
 	dnsRespone.Header.AdditionalResourceCount = 0
 
-	if recordStat == RECORD_FOUND_IN_LOCAL {
-		dnsRespone.Header.AnswerCount = uint16(1)
-	}
+	switch recordStat {
+	case RECORD_FOUND_IN_LOCAL:
+		dnsRespone.Header.AnswerCount = 1
+		// RCODE = NOERROR (0) → default
 
-	if recordStat == DOMAIN_EXISTS_NO_RECORD {
-		dnsRespone.Header.AnswerCount = uint16(0)
-		// rcode remains 0 (NOERROR) — domain exists, just no record of this type
+	case DOMAIN_EXISTS_NO_RECORD:
+		dnsRespone.Header.AnswerCount = 0
+		// RCODE = NOERROR (0) → domain exists, no record of this type
+
+	case DOMAIN_BLOCKED:
+		dnsRespone.Header.AnswerCount = 0
+		// Set RCODE = NXDOMAIN (3)
+		dnsRespone.Header.Flags &^= 0xF // clear last 4 bits (existing RCODE)
+		dnsRespone.Header.Flags |= 0x3  // set NXDOMAIN
 	}
 
 	dnsRespone.Query = dnsRequest.Query

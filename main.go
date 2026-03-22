@@ -29,12 +29,27 @@ func main() {
 
 	// Load records from records.json
 	log.Println("loading local records")
-	localDnsCache := LoadAllDNSCache()
+	localDnsCache, err := LoadLocalDNSRecords(DNS_DB_PATH)
+	if err != nil {
+		log.Println(err.Error())
+	} else {
+		log.Println("local records loaded")
+	}
+
+	// Load Domains that needs to be blocked
+	log.Println("loading domains that needs to be blocked")
+	localBlockDomain, err := loadBlocklist(DOMAIN_BLOCK_LIST)
+	if err != nil {
+		log.Printf("blocklist not loaded: %v", err)
+		localBlockDomain = make(map[string]struct{})
+	} else {
+		log.Printf("blocklist loaded: %d domains", len(localBlockDomain))
+	}
 
 	// Spwan workers
 	jobs := make(chan jobRequest, 50)
 	for range 4 {
-		go dnsWorker(localDnsCache, conn, jobs)
+		go dnsWorker(localDnsCache, localBlockDomain, conn, jobs)
 	}
 
 	log.Println("Server up and running")
@@ -58,7 +73,7 @@ func main() {
 
 }
 
-func dnsWorker(localDnsCache map[string][]DNSLocalCache, conn *net.UDPConn, jobs chan jobRequest) {
+func dnsWorker(localDnsCache map[string][]DNSLocalCache, localBlockDomain map[string]struct{}, conn *net.UDPConn, jobs chan jobRequest) {
 
 	for {
 
@@ -85,7 +100,7 @@ func dnsWorker(localDnsCache map[string][]DNSLocalCache, conn *net.UDPConn, jobs
 		}
 
 		// Fetch record from local cache
-		recordStat, recordFromLocalCache := FetchRecordFromLocal(localDnsCache, &dnsRequest)
+		recordStat, recordFromLocalCache := FetchRecordFromLocal(localDnsCache, localBlockDomain, &dnsRequest)
 
 		if recordStat == DOMAIN_NOT_FOUND_IN_LOCAL {
 			// Send the raw request to Public DNS

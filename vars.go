@@ -6,16 +6,18 @@ import "errors"
 type RecordStatus int
 
 const (
-	NO_ISSUE                	= RecordStatus(0)
-	DOMAIN_NOT_FOUND_IN_LOCAL 	= RecordStatus(1)
-	RECORD_FOUND_IN_LOCAL 	 	= RecordStatus(2)
-	DOMAIN_EXISTS_NO_RECORD 	= RecordStatus(3)
- 	ERR_REMOTE_DNS_TIMEOUT  	= RecordStatus(4)
+	NO_ISSUE                  = RecordStatus(0)
+	DOMAIN_NOT_FOUND_IN_LOCAL = RecordStatus(1)
+	RECORD_FOUND_IN_LOCAL     = RecordStatus(2)
+	DOMAIN_EXISTS_NO_RECORD   = RecordStatus(3)
+	ERR_REMOTE_DNS_TIMEOUT    = RecordStatus(4)
+	DOMAIN_BLOCKED            = RecordStatus(5)
 )
 
 const (
-	DNS_DB_PATH      = "records.json"
-	DNS_ADDRESS_PORT = ":53"
+	DNS_DB_PATH       = "./records.json"
+	DNS_ADDRESS_PORT  = ":53"
+	DOMAIN_BLOCK_LIST = "./blocklist.txt"
 )
 
 const (
@@ -27,7 +29,7 @@ const (
 
 var (
 	errExtractDNSHeader = errors.New("Unable to extract the DNS request Header")
-	errExtractDNSQuery = errors.New("Unable to extract the DNS request Query")
+	errExtractDNSQuery  = errors.New("Unable to extract the DNS request Query")
 )
 
 const BANNER string = `===============================================================

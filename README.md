@@ -52,7 +52,7 @@ https://github.com/hagezi/dns-blocklists
 go build .
 sudo ./nsfw
 ```
-Note: DNS uses port 53 (a privileged port), so root privileges are required unless you grant capabilities (see step 7).
+Note: DNS uses port 53 (a privileged port), so root privileges are required unless you grant capabilities.
 
 #### 5. Test the DNS service
 Test the domain name lookup on another machine on the LAN. You should see something like this

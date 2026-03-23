@@ -98,22 +98,22 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
-#### 2. Enable and Start the Service
+#### 2. Binding to Port 53 Without Root
+Instead of running as root, you can grant the binary permission to bind to privileged ports
+```
+sudo setcap 'cap_net_bind_service=+ep' /path/to/nsfw
+```
+
+#### 3. Enable and Start the Service
 ```
 sudo systemctl daemon-reload
 sudo systemctl enable nsfw
 sudo systemctl start nsfw
 ```
 
-#### 3. View Logs
+#### 4. View Logs
 ```
 journalctl -u nsfw -f
-```
-
-#### 4. Binding to Port 53 Without Root
-Instead of running as root, you can grant the binary permission to bind to privileged ports
-```
-sudo setcap 'cap_net_bind_service=+ep' /path/to/nsfw
 ```
 
 

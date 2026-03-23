@@ -50,7 +50,7 @@ func extractQueries(dnsRequest *DNS, buff *bytes.Buffer) error {
 	}
 	lenOfLabel := int(readLen)
 
-	// On the wire, first comes the length of label, followed by the label itself. 
+	// On the wire, first comes the length of label, followed by the label itself.
 	// When length of label becomes, 0 we know that there are no more labels
 	for lenOfLabel != 0 {
 		dnsRequest.Query.QueryLabel = append(dnsRequest.Query.QueryLabel, string(buff.Next(lenOfLabel)))
@@ -67,73 +67,47 @@ func extractQueries(dnsRequest *DNS, buff *bytes.Buffer) error {
 	return nil
 }
 
-func FetchRecordFromLocal(localDnsCache map[string][]DNSLocalCache, dnsRequest *DNS ) (RecordStatus, DNSLocalCache) {
-
-	var requestUrl string
-	var requestRecordType uint16 = dnsRequest.Query.QType
-
-	// Construct the Request URL
-	for _, label := range dnsRequest.Query.QueryLabel {
-		requestUrl += label
-		requestUrl += "."
-	}
-	requestUrl = requestUrl[:len(requestUrl)-1]
-
-	// Check if domain exists locally.
-	lookupRecords, ifLocalDomainExist := localDnsCache[requestUrl]
-
-	if !ifLocalDomainExist {
-		return  DOMAIN_NOT_FOUND_IN_LOCAL, DNSLocalCache{}
-	}
-
-	// Check if record exists locally
-	for _, rec := range lookupRecords {
-		if requestRecordType == rec.Rtype {
-			return RECORD_FOUND_IN_LOCAL, rec
-		} 
-	}
-	
-	return DOMAIN_EXISTS_NO_RECORD, DNSLocalCache{}
-
-}
-
-func CraftResponseRecord(dnsRespone *DNS, recordStat RecordStatus ,recordFromLocalCache DNSLocalCache) {
+func CraftResponseRecord(dnsRespone *DNS, recordStat RecordStatus, recordFromLocalCache DNSLocalCache) {
 
 	// Since record is not present in local cache, skip creafting Record response
-	if recordStat == DOMAIN_EXISTS_NO_RECORD {
+	if recordStat == DOMAIN_EXISTS_NO_RECORD || recordStat == DOMAIN_BLOCKED {
 		return
 	}
 
 	// In the answer header, the name field points to the pointer where the query is requested.
 	// This is called query compressions. Insted of the copying the complete query, the answer field just point to it
-	queryPointer    := uint16(0xc0) << 8 // This is an indicator. If its 11, then 
-	offSet          := uint16(12)
-	
+	queryPointer := uint16(0xc0) << 8 // This is an indicator. If its 11, then
+	offSet := uint16(12)
+
 	dnsRespone.Answer.NamePtr = queryPointer + offSet
-	
 
 	// NEEDS CHANGE: chagne the record type from string to INT for quicker lookup
 	switch recordFromLocalCache.Rtype {
 
 	case TypeA:
-		ipAddress := []byte(net.ParseIP(recordFromLocalCache.Value))
+		ipAddress := net.ParseIP(recordFromLocalCache.Value)
+		if ipAddress == nil {
+			log.Printf("Invalid IPv4 address in local cache: %s", recordFromLocalCache.Value)
+			return
+		}
 		dnsRespone.Answer.RecordType = TypeA
 		dnsRespone.Answer.RDlength = 4
-		dnsRespone.Answer.RData = ipAddress[12:16]
+		dnsRespone.Answer.RData = []byte(ipAddress.To4())
 
 	case TypeAAAA:
-		ipAddress := []byte(net.ParseIP(recordFromLocalCache.Value))
+		ipAddress := net.ParseIP(recordFromLocalCache.Value)
+		if ipAddress == nil {
+			log.Printf("Invalid IPv6 address in local cache: %s", recordFromLocalCache.Value)
+			return
+		}
 		dnsRespone.Answer.RecordType = TypeAAAA
 		dnsRespone.Answer.RDlength = 16
-		dnsRespone.Answer.RData = ipAddress
+		dnsRespone.Answer.RData = []byte(ipAddress.To16())
 	}
 
 	dnsRespone.Answer.Class = 1
 	dnsRespone.Answer.TTL = recordFromLocalCache.Ttl
-
-	return
 }
-
 
 func SetHeadersAndFields(dnsRequest, dnsRespone *DNS, recordStat RecordStatus) {
 
@@ -141,29 +115,34 @@ func SetHeadersAndFields(dnsRequest, dnsRespone *DNS, recordStat RecordStatus) {
 	dnsRespone.Header.ID = dnsRequest.Header.ID
 	dnsRespone.Header.Flags = dnsRequest.Header.Flags
 
-	dnsRespone.Header.Flags |= 1 << 15            // Response packet
-	dnsRespone.Header.Flags |= 1 << 10            // This is the Authority for the domain
-	dnsRespone.Header.Flags |= 1 << 7          // Recursion avilable
+	dnsRespone.Header.Flags |= 1 << 15 // Response packet
+	dnsRespone.Header.Flags |= 1 << 10 // This is the Authority for the domain
+	dnsRespone.Header.Flags |= 1 << 7  // Recursion avilable
 
 	dnsRespone.Header.QuestionCount = dnsRequest.Header.QuestionCount
-	
+
 	dnsRespone.Header.AuthorityCount = 0
 	dnsRespone.Header.AdditionalResourceCount = 0
 
-	if recordStat == RECORD_FOUND_IN_LOCAL {
-		dnsRespone.Header.AnswerCount = uint16(1)
-	}
+	switch recordStat {
+	case RECORD_FOUND_IN_LOCAL:
+		dnsRespone.Header.AnswerCount = 1
+		// RCODE = NOERROR (0) → default
 
-	if recordStat == DOMAIN_EXISTS_NO_RECORD {
-		dnsRespone.Header.AnswerCount = uint16(0)
-		// set the code to nxdomain
-		dnsRespone.Header.Flags |= 3
+	case DOMAIN_EXISTS_NO_RECORD:
+		dnsRespone.Header.AnswerCount = 0
+		// RCODE = NOERROR (0) → domain exists, no record of this type
+
+	case DOMAIN_BLOCKED:
+		dnsRespone.Header.AnswerCount = 0
+		// Set RCODE = NXDOMAIN (3)
+		dnsRespone.Header.Flags &^= 0xF // clear last 4 bits (existing RCODE)
+		dnsRespone.Header.Flags |= 0x3  // set NXDOMAIN
 	}
 
 	dnsRespone.Query = dnsRequest.Query
 
 }
-
 
 func DiscardRequest(dnsRequest *DNS) bool {
 

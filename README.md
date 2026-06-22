@@ -1,8 +1,8 @@
-
+ 
 # NSFW – Name Server For the Web
 
 **NSFW** is a lightweight DNS resolver written in Go, designed for home lab setups. It allows you to resolve custom local domains, forward public DNS queries, and apply basic domain filtering.
-For more info, check out: [goDNS for lan](https://hisokathetrickster.gitbook.io/networking-demystified/projects/godns-for-lan)
+For more info, check out: [goDNS for lan](https://tilecarb.gitbook.io/networking-demystified/projects/godns-for-lan)
 
 ## ✨ Features
 
